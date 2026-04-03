@@ -35,6 +35,15 @@ function extractText(contentState) {
   } catch { return ''; }
 }
 
+function extractThumbnail(contentState) {
+  try {
+    const obj = JSON.parse(contentState);
+    const images = Object.values(obj.entityMap || {})
+      .filter(e => e.type === 'IMAGE' && e.data?.src);
+    return images.length > 0 ? images[0].data.src : null;
+  } catch { return null; }
+}
+
 function escapeXml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -46,20 +55,25 @@ function escapeXml(str) {
 
 function buildRss(articles) {
   const items = articles.map(a => {
-    const link    = `https://snabi.jp/facility/${a.facility_id}/blog_articles/${a.id}`;
-    const pubDate = new Date(a.formatted_open_at).toUTCString();
-    const desc    = escapeXml(extractText(a.content_state));
+    const link      = `https://snabi.jp/facility/${a.facility_id}/blog_articles/${a.id}`;
+    const pubDate   = new Date(a.formatted_open_at).toUTCString();
+    const desc      = escapeXml(extractText(a.content_state));
+    const thumbnail = extractThumbnail(a.content_state);
+    const mediaTag  = thumbnail
+      ? `\n      <media:content url="${thumbnail}" medium="image"/>`
+      : '';
+
     return `    <item>
       <title>${escapeXml(a.title)}</title>
       <link>${link}</link>
       <guid isPermaLink="true">${link}</guid>
       <pubDate>${pubDate}</pubDate>
-      <description>${desc}…</description>
+      <description>${desc}…</description>${mediaTag}
     </item>`;
   }).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
     <title>${escapeXml(FACILITY_NAME)} ブログ</title>
     <link>${BASE_URL}</link>
